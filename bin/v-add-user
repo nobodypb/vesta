@@ -60,8 +60,15 @@ pkg_data=$(cat $VESTA/data/packages/$package.pkg |grep -v TIME |grep -v DATE)
 shell_conf=$(echo "$pkg_data" | grep 'SHELL' | cut -f 2 -d \')
 shell=$(grep -w "$shell_conf" /etc/shells |head -n1)
 
+check_sftp_group=$(grep "^sftp_users:" /etc/group)
+if [[ $shell == *"nologin" ]] && [ ! -z "$check_sftp_group" ]; then
+	shell='/bin/bash'
+	groups="-G sftp_users"
+fi
+
 # Adding user
-/usr/sbin/useradd "$user" -s "$shell" -c "$email" -m -d "$HOMEDIR/$user"
+/usr/sbin/useradd "$user" -s "$shell" -c "$email" -m -d "$HOMEDIR/$user" $groups
+
 if [ $? -ne 0 ]; then
     echo "Error: user creation failed"
     log_event "$E_INVALID" "$EVENT"
