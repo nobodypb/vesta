@@ -971,8 +971,13 @@ else
 fi
 
 # Get main ip
-main_ip=$(ifconfig |grep 'inet addr:' |grep -v 127.0.0.1 |head -n1 | \
-    cut -f2 -d: | cut -f1 -d ' ')
+if [ "$release" -eq '7' ]; then
+	main_ip=$(ip addr | grep 'inet ' | grep -v 127.0.0.1 | head -n1 | \
+		cut -f6 -d ' ' | cut -f1 -d '/')
+else
+	main_ip=$(ifconfig |grep 'inet addr:' |grep -v 127.0.0.1 |head -n1 | \
+		cut -f2 -d: | cut -f1 -d ' ')
+fi
 
 # Get remote ip
 vst_ip=$(wget vestacp.com/what-is-my-ip/ -O - 2>/dev/null)
