@@ -841,7 +841,9 @@ fi
 if [ "$srv_type" = 'medium' ] ||  [ "$srv_type" = 'large' ]; then
     wget $CHOST/$VERSION/$release/clamav/clamd.conf -O /etc/clamd.conf
     wget $CHOST/$VERSION/$release/clamav/freshclam.conf -O /etc/freshclam.conf
-	if [ "$release" -eq '5' ]; then
+	if [ "$release" -eq '7' ]; then
+		sed -i "s/User clam/User clamscan/g" /etc/clamd.conf
+		sed -i "s/DatabaseOwner clam/DatabaseOwner clamupdate/g" /etc/freshclam.conf
 		gpasswd -a clamscan exim
 		gpasswd -a clamscan mail
 		/usr/bin/freshclam
