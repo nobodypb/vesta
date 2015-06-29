@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Vesta RHEL/CentOS installer v.04
+# Vesta RHEL/CentOS installer v.05
 
 #----------------------------------------------------------#
 #                  Variables&Functions                     #
@@ -153,7 +153,7 @@ fi
 # Check installed packages
 tmpfile=$(mktemp -p /tmp)
 rpm -qa > $tmpfile
-for pkg in exim bind-9 mysql-server httpd nginx vesta; do
+for pkg in exim bind-9 mysql-server mariadb-server httpd nginx vesta; do
     if [ ! -z "$(grep $pkg $tmpfile)" ]; then
         conflicts="$pkg $conflicts"
     fi
@@ -256,9 +256,14 @@ if [ "$mx_failed" -eq 1 ]; then
 fi
 
 # Check for ipv6 on loopback interface
-check_lo_ipv6=$(/sbin/ifconfig lo| grep 'inet6 addr')
+if [ "$release" -eq '7' ]; then
+	check_lo_ipv6=$(/sbin/ip addr show lo | grep 'inet6')
+else
+	check_lo_ipv6=$(/sbin/ifconfig lo| grep 'inet6 addr')
+fi
+
 check_rc_ipv6=$(grep 'scope global dev lo' /etc/rc.local)
-if [ ! -z "$check_lo_ipv6)" ] && [ -z "$check_rc_ipv6" ]; then
+if [ ! -z "$check_lo_ipv6" ] && [ -z "$check_rc_ipv6" ]; then
     ip addr add ::2/128 scope global dev lo
     echo "# Vesta: Workraround for openssl validation func" >> /etc/rc.local
     echo "ip addr add ::2/128 scope global dev lo" >> /etc/rc.local
@@ -284,19 +289,23 @@ fi
 
 # Install EPEL repo
 if [ ! -e '/etc/yum.repos.d/epel.repo' ]; then
-    if [ "$release" -eq '5' ]; then
-        epel="5/$arch/epel-release-5-4.noarch.rpm"
-    fi
+	if [ "$release" -eq '7' ]; then
+		yum -y install epel_release
+	else
+		if [ "$release" -eq '5' ]; then
+			epel="5/$arch/epel-release-5-4.noarch.rpm"
+		fi
 
-    if [ "$release" -eq '6' ]; then
-        epel="6/$arch/epel-release-6-8.noarch.rpm"
-    fi
+		if [ "$release" -eq '6' ]; then
+			epel="6/$arch/epel-release-6-8.noarch.rpm"
+		fi
 
-    rpm -ivh http://dl.fedoraproject.org/pub/epel/$epel
-    if [ $? -ne 0 ]; then
-        echo "Error: can't install EPEL repository"
-        exit 1
-    fi
+		rpm -ivh http://dl.fedoraproject.org/pub/epel/$epel
+	fi
+	if [ $? -ne 0 ]; then
+		echo "Error: can't install EPEL repository"
+		exit 1
+	fi
 fi
 
 # Install remi repo
@@ -308,6 +317,10 @@ if [ ! -e '/etc/yum.repos.d/remi.repo' ]; then
     if [ "$release" -eq '6' ]; then
         remi="remi-release-6.rpm"
     fi
+	
+	if [ "$release" -eq '7' ]; then
+	    remi="remi-release-7.rpm"
+	fi
 
     rpm -ivh http://rpms.famillecollet.com/enterprise/$remi
     if [ $? -ne 0 ]; then
@@ -410,6 +423,10 @@ if [ -e '/etc/dovecot' ]; then
     cp -r /etc/dovecot/* $vst_backups/dovecot/
 fi
 
+if [ "$release" -eq '7' ]; then
+	systemctl stop mariadb > /dev/null 2>&1
+fi
+
 # Backup MySQL stuff
 service mysqld stop > /dev/null 2>&1
 if [ -e '/var/lib/mysql' ]; then
@@ -458,8 +475,15 @@ if [ "$disable_fail2ban" = 'yes' ]; then
     software=$(echo "$software" | sed -e 's/fail2ban//')
 fi
 
+if [ "$release" -eq '7' ]; then
+	software=$(echo "$software" | sed -e 's/mod_extract_forwarded//')
+	software=$(echo "$software" | sed -e 's/rssh//')
+	software=$(echo "$software" | sed -e 's/mysql-server/mariadb-server/g')
+	software=$(echo "$software" | sed -e 's/clamd/clamav clamav-update clamav-scanner/g')
+fi
+
 # Install Vesta packages
-if [ -z "$disable_remi" ]; then 
+if [ -z "$disable_remi" ]; then
     yum -y --disablerepo=* --enablerepo="base,updates,nginx,epel,vesta,remi" \
         install $software
 else
@@ -540,11 +564,11 @@ fi
 
 # Templates
 cd /usr/local/vesta/data
-wget $CHOST/$VERSION/packages.tar.gz -O packages.tar.gz
+wget $CHOST/$VERSION/$release/packages.tar.gz -O packages.tar.gz
 tar -xzf packages.tar.gz
 rm -f packages.tar.gz
 cd /usr/local/vesta/data
-wget $CHOST/$VERSION/templates.tar.gz -O templates.tar.gz
+wget $CHOST/$VERSION/$release/templates.tar.gz -O templates.tar.gz
 tar -xzf templates.tar.gz
 rm -f templates.tar.gz
 chmod -R 755 /usr/local/vesta/data/templates
@@ -579,7 +603,7 @@ echo 'LS_COLORS="$LS_COLORS:di=00;33"' >> /etc/profile
 
 # Sudo configuration
 wget $CHOST/$VERSION/sudoers.conf -O /etc/sudoers
-wget $CHOST/$VERSION/sudoers.admin.conf -O /etc/sudoers.d/admin
+wget $CHOST/$VERSION/$release/sudo/admin -O /etc/sudoers.d/admin
 chmod 440 /etc/sudoers
 chmod 440 /etc/sudoers.d/admin
 
@@ -598,10 +622,20 @@ sed -i 's/#allowsftp/allowsftp/' /etc/rssh.conf
 sed -i 's/#allowrsync/allowrsync/' /etc/rssh.conf
 chmod 755 /usr/bin/rssh
 
+# Setup sftp only usergroup
+groupadd sftp_users
+sed -i 's|Subsystem sftp /usr/libexec/openssh/sftp-server|#Subsystem sftp /usr/libexec/openssh/sftp-server|g' /etc/ssh/sshd_config
+echo 'Subsystem sftp internal-sftp' >> /etc/ssh/sshd_config
+echo 'Match Group sftp_users' >> /etc/ssh/sshd_config
+echo '  X11Forwarding no' >> /etc/ssh/sshd_config
+echo '  AllowTcpForwarding no' >> /etc/ssh/sshd_config
+echo '  ChrootDirectory /home' >> /etc/ssh/sshd_config
+echo '  ForceCommand internal-sftp -d %u' >> /etc/ssh/sshd_config
+
 # Nginx configuration
 rm -f /etc/nginx/conf.d/*.conf
-wget $CHOST/$VERSION/nginx.conf -O /etc/nginx/nginx.conf
-wget $CHOST/$VERSION/nginx-status.conf -O /etc/nginx/conf.d/status.conf
+wget $CHOST/$VERSION/$release/nginx/nginx.conf -O /etc/nginx/nginx.conf
+wget $CHOST/$VERSION/$release/nginx/status.conf -O /etc/nginx/conf.d/status.conf
 touch /etc/nginx/conf.d/vesta.conf
 chkconfig nginx on
 service nginx start
@@ -611,9 +645,9 @@ if [ "$?" -ne 0 ]; then
 fi
 
 # Apache configuration
-wget $CHOST/$VERSION/httpd.conf -O /etc/httpd/conf/httpd.conf
-wget $CHOST/$VERSION/httpd-status.conf -O /etc/httpd/conf.d/status.conf
-wget $CHOST/$VERSION/httpd-ssl.conf -O /etc/httpd/conf.d/ssl.conf
+wget $CHOST/$VERSION/$release/httpd/httpd.conf -O /etc/httpd/conf/httpd.conf
+wget $CHOST/$VERSION/$release/httpd/status.conf -O /etc/httpd/conf.d/status.conf
+wget $CHOST/$VERSION/$release/httpd/ssl.conf -O /etc/httpd/conf.d/ssl.conf
 wget $CHOST/$VERSION/httpd.log -O /etc/logrotate.d/httpd
 echo "MEFaccept 127.0.0.1" >> /etc/httpd/conf.d/mod_extract_forwarded.conf
 rm -f /etc/httpd/conf.d/proxy_ajp.conf
@@ -637,7 +671,7 @@ if [ "$?" -ne 0 ]; then
 fi
 
 # Vsftpd configuration
-wget $CHOST/$VERSION/vsftpd.conf -O /etc/vsftpd/vsftpd.conf
+wget $CHOST/$VERSION/$release/vsftpd/vsftpd.conf -O /etc/vsftpd/vsftpd.conf
 chkconfig vsftpd on
 service vsftpd start
 if [ "$?" -ne 0 ]; then
@@ -645,25 +679,40 @@ if [ "$?" -ne 0 ]; then
     exit 1
 fi
 
-# MySQL configuration
-if [ "$srv_type" = 'micro' ]; then
-    wget $CHOST/$VERSION/mysql-512.cnf -O /etc/my.cnf
+if [ "$release" -eq '7' ]; then
+	# MariaDB configuration
+	if [ "$srv_type" = 'micro' ] || [ "$srv_type" = 'small' ]; then
+		wget $CHOST/$VERSION/$release/mariadb/my-small.cnf -O /etc/my.cnf
+	elif [ "$srv_type" = 'medium' ]; then
+		wget $CHOST/$VERSION/$release/mariadb/my-medium.cnf -O /etc/my.cnf
+	else
+		wget $CHOST/$VERSION/$release/mariadb/my-large.cnf -O /etc/my.cnf
+	fi
+	
+	systemctl enable mariadb
+	systemctl start mariadb
 else
-    wget $CHOST/$VERSION/mysql.cnf -O /etc/my.cnf
-fi
-chkconfig mysqld on
-service mysqld start
-if [ "$?" -ne 0 ]; then
-    # Fix for aio on OpenVZ
-    if [ -e "/proc/user_beancounters" ]; then
-        sed -i "s/#innodb_use_native_aio/innodb_use_native_aio/g" /etc/my.cnf
-    fi
+	# MySQL configuration
+	if [ "$srv_type" = 'micro' ]; then
+		wget $CHOST/$VERSION/$release/mysqld/my-small.cnf -O /etc/my.cnf
+	else
+		wget $CHOST/$VERSION/$release/mysqld/my-large.cnf -O /etc/my.cnf
+	fi
+	
+	chkconfig mysqld on
+	service mysqld start
+	if [ "$?" -ne 0 ]; then
+		# Fix for aio on OpenVZ
+		if [ -e "/proc/user_beancounters" ]; then
+			sed -i "s/#innodb_use_native_aio/innodb_use_native_aio/g" /etc/my.cnf
+		fi
 
-    service mysqld start
-    if [ "$?" -ne 0 ]; then
-        echo "Error: mysqld start failed"
-        exit 1
-    fi
+		service mysqld start
+		if [ "$?" -ne 0 ]; then
+			echo "Error: mysqld start failed"
+			exit 1
+		fi
+	fi
 fi
 
 # Generating MySQL password if it wasn't set
@@ -681,24 +730,29 @@ mysql -e "DELETE FROM mysql.user WHERE user='' or password='';"
 mysql -e "FLUSH PRIVILEGES"
 
 # Bind configuration
-wget $CHOST/$VERSION/named.conf -O /etc/named.conf
+wget $CHOST/$VERSION/$release/named/named.conf -O /etc/named.conf
 chown root:named /etc/named.conf
 chmod 640 /etc/named.conf
-chkconfig named on
-service named start
+if [ "$release" -eq '7' ]; then
+	systemctl enable named
+	systemctl start named
+else
+	chkconfig named on
+	service named start
+fi
 if [ "$?" -ne 0 ]; then
     echo "Error: named start failed"
     exit 1
 fi
 
 # Exim
-wget $CHOST/$VERSION/exim.conf -O /etc/exim/exim.conf
+wget $CHOST/$VERSION/$release/exim/exim.conf -O /etc/exim/exim.conf
 if [ "$srv_type" != 'micro' ] &&  [ "$srv_type" != 'small' ]; then
     sed -i "s/#SPAM/SPAM/g" /etc/exim/exim.conf
     sed -i "s/#CLAMD/CLAMD/g" /etc/exim/exim.conf
 fi
-wget $CHOST/$VERSION/dnsbl.conf -O /etc/exim/dnsbl.conf
-wget $CHOST/$VERSION/spam-blocks.conf -O /etc/exim/spam-blocks.conf
+wget $CHOST/$VERSION/$release/exim/dnsbl.conf -O /etc/exim/dnsbl.conf
+wget $CHOST/$VERSION/$release/exim/spam-blocks.conf -O /etc/exim/spam-blocks.conf
 touch /etc/exim/white-blocks.conf
 rm -rf /etc/exim/domains
 mkdir -p /etc/exim/domains
@@ -709,8 +763,13 @@ if [ -e /etc/init.d/sendmail ]; then
     service sendmail stop
 fi
 if [ -e /etc/init.d/postfix ]; then
-    chkconfig postfix off
-    service postfix stop
+	if [ "$release" -eq '7' ]; then
+		systemctl stop postfix
+		systemctl disable postfix
+	else
+		chkconfig postfix off
+		service postfix stop
+	fi
 fi
 rm -f /etc/alternatives/mta
 ln -s /usr/sbin/sendmail.exim /etc/alternatives/mta
@@ -725,7 +784,7 @@ fi
 if [ "$release" -eq '5' ]; then
     wget $CHOST/$VERSION/dovecot.conf -O /etc/dovecot.conf
 else
-    wget $CHOST/$VERSION/$release/dovecot.tar.gz -O  /etc/dovecot.tar.gz
+	wget $CHOST/$VERSION/$release/dovecot.tar.gz -O  /etc/dovecot.tar.gz
     cd /etc
     if [ -d /etc/dovecot ]; then
         rm -rf /etc/dovecot
@@ -749,13 +808,22 @@ fi
 
 # ClamAV configuration
 if [ "$srv_type" = 'medium' ] ||  [ "$srv_type" = 'large' ]; then
-    wget $CHOST/$VERSION/clamd.conf -O /etc/clamd.conf
-    wget $CHOST/$VERSION/freshclam.conf -O /etc/freshclam.conf
-    gpasswd -a clam exim
-    gpasswd -a clam mail
-    /usr/bin/freshclam
-    chkconfig clamd on
-    service clamd start
+    wget $CHOST/$VERSION/$release/clamav/clamd.conf -O /etc/clamd.conf
+    wget $CHOST/$VERSION/$release/clamav/freshclam.conf -O /etc/freshclam.conf
+	if [ "$release" -eq '5' ]; then
+		gpasswd -a clamscan exim
+		gpasswd -a clamscan mail
+		/usr/bin/freshclam
+		chkconfig clamd.scan on
+		service clamd.scan start
+	else
+		gpasswd -a clam exim
+		gpasswd -a clam mail
+		/usr/bin/freshclam
+		chkconfig clamd on
+		service clamd start
+	fi
+    
     if [ "$?" -ne 0 ]; then
         echo "Error: clamd start failed"
         exit 1
@@ -775,7 +843,7 @@ fi
 # Fail2ban configuration
 if [ -z "$disable_fail2ban" ]; then
     cd /etc
-    wget $CHOST/$VERSION/fail2ban.tar.gz -O fail2ban.tar.gz
+    wget $CHOST/$VERSION/$release/fail2ban.tar.gz -O fail2ban.tar.gz
     tar -xzf fail2ban.tar.gz
     rm -f fail2ban.tar.gz
     chkconfig fail2ban on
@@ -789,17 +857,17 @@ sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php.ini
 sed -i "s/;date.timezone =/date.timezone = UTC/g" /etc/php.ini
 
 # phpMyAdmin configuration
-wget $CHOST/$VERSION/httpd-pma.conf -O /etc/httpd/conf.d/phpMyAdmin.conf
-wget $CHOST/$VERSION/pma.conf -O /etc/phpMyAdmin/config.inc.php
+wget $CHOST/$VERSION/$release/pma/phpMyAdmin.conf -O /etc/httpd/conf.d/phpMyAdmin.conf
+wget $CHOST/$VERSION/$release/pma/config.inc.php -O /etc/phpMyAdmin/config.inc.php
 sed -i "s/%blowfish_secret%/$(gen_pass)/g" /etc/phpMyAdmin/config.inc.php
 
 # Roundcube configuration
-wget $CHOST/$VERSION/httpd-webmail.conf -O /etc/httpd/conf.d/roundcubemail.conf
-wget $CHOST/$VERSION/roundcube-main.conf -O /etc/roundcubemail/main.inc.php
-wget $CHOST/$VERSION/roundcube-db.conf -O /etc/roundcubemail/db.inc.php
-wget $CHOST/$VERSION/roundcube-driver.php -O \
+wget $CHOST/$VERSION/$release/roundcube/roundcubemail.conf -O /etc/httpd/conf.d/roundcubemail.conf
+wget $CHOST/$VERSION/$release/roundcube/main.inc.php -O /etc/roundcubemail/main.inc.php
+wget $CHOST/$VERSION/$release/roundcube/db.inc.php -O /etc/roundcubemail/db.inc.php
+wget $CHOST/$VERSION/$release/roundcube/vesta.php -O \
     /usr/share/roundcubemail/plugins/password/drivers/vesta.php
-wget $CHOST/$VERSION/roundcube-pw.conf -O \
+wget $CHOST/$VERSION/$release/roundcube/config.inc.php -O \
     /usr/share/roundcubemail/plugins/password/config.inc.php
 r="$(gen_pass)"
 mysql -e "CREATE DATABASE roundcube"
@@ -845,7 +913,7 @@ $VESTA/bin/v-add-database admin default default $(gen_pass) mysql
 $VESTA/bin/v-update-sys-ip
 
 # Firewall configuration
-wget $CHOST/$VERSION/firewall.tar.gz -O firewall.tar.gz
+wget $CHOST/$VERSION/$release/firewall.tar.gz -O firewall.tar.gz
 tar -xzf firewall.tar.gz
 rm -f firewall.tar.gz
 if [ "$disable_iptables" = 'yes' ]; then
