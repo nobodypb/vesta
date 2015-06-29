@@ -12,7 +12,7 @@ REPO='cmmnt'
 VERSION='0.9.8/rhel'
 YUM_REPO='/etc/yum.repos.d/vesta.repo'
 software="nginx httpd mod_ssl mod_ruid2 mod_extract_forwarded mod_fcgid
-    php php-bcmath php-cli php-common php-gd php-imap php-mbstring php-mcrypt
+    php php-fpm php-bcmath php-cli php-common php-gd php-imap php-mbstring php-mcrypt
     php-mysql php-pdo php-soap php-tidy php-xml php-xmlrpc quota e2fsprogs
     phpMyAdmin awstats webalizer vsftpd mysql mysql-server exim dovecot clamd
     spamassassin curl roundcubemail bind bind-utils bind-libs mc screen ftp
@@ -479,7 +479,9 @@ if [ "$release" -eq '7' ]; then
 	software=$(echo "$software" | sed -e 's/mod_extract_forwarded//')
 	software=$(echo "$software" | sed -e 's/rssh//')
 	software=$(echo "$software" | sed -e 's/mysql-server/mariadb-server/g')
+	software=$(echo "$software" | sed -e 's/mysql/mariadb/g')
 	software=$(echo "$software" | sed -e 's/clamd/clamav clamav-update clamav-scanner/g')
+	software="$software proftpd"
 fi
 
 # Install Vesta packages
@@ -520,7 +522,7 @@ source /etc/profile.d/vesta.sh
 echo 'PATH=$PATH:/usr/local/vesta/bin' >> /root/.bash_profile
 echo 'export PATH' >> /root/.bash_profile
 source /root/.bash_profile
-wget $CHOST/$VERSION/vesta.log -O /etc/logrotate.d/vesta
+wget $CHOST/$VERSION/$release/logrotate/vesta -O /etc/logrotate.d/vesta
 
 # Directory tree
 mkdir -p $VESTA/conf
@@ -636,6 +638,10 @@ echo '  ForceCommand internal-sftp -d %u' >> /etc/ssh/sshd_config
 rm -f /etc/nginx/conf.d/*.conf
 wget $CHOST/$VERSION/$release/nginx/nginx.conf -O /etc/nginx/nginx.conf
 wget $CHOST/$VERSION/$release/nginx/status.conf -O /etc/nginx/conf.d/status.conf
+wget $CHOST/$VERSION/$release/nginx/phpmyadmin.inc -O /etc/nginx/conf.d/phpmyadmin.conf
+wget $CHOST/$VERSION/$release/nginx/phppgadmin.inc -O /etc/nginx/conf.d/phppgadmin.conf
+wget $CHOST/$VERSION/$release/nginx/webmail.inc -O /etc/nginx/conf.d/webmail.conf
+wget $CHOST/$VERSION/$release/logrotate/nginx -O /etc/logrotate.d/nginx
 touch /etc/nginx/conf.d/vesta.conf
 chkconfig nginx on
 service nginx start
@@ -648,7 +654,7 @@ fi
 wget $CHOST/$VERSION/$release/httpd/httpd.conf -O /etc/httpd/conf/httpd.conf
 wget $CHOST/$VERSION/$release/httpd/status.conf -O /etc/httpd/conf.d/status.conf
 wget $CHOST/$VERSION/$release/httpd/ssl.conf -O /etc/httpd/conf.d/ssl.conf
-wget $CHOST/$VERSION/httpd.log -O /etc/logrotate.d/httpd
+wget $CHOST/$VERSION/$release/logrotate/httpd -O /etc/logrotate.d/httpd
 echo "MEFaccept 127.0.0.1" >> /etc/httpd/conf.d/mod_extract_forwarded.conf
 rm -f /etc/httpd/conf.d/proxy_ajp.conf
 echo > /etc/httpd/conf.d/proxy_ajp.conf
@@ -668,6 +674,26 @@ service httpd start
 if [ "$?" -ne 0 ]; then
     echo "Error: httpd start failed"
     exit 1
+fi
+
+# php-fpm
+wget $CHOST/$VERSION/$release/php-fpm/www.conf -O /etc/php-fpm.d/www.conf
+systemctl enable php-fpm.service
+systemctl start php-fpm
+if [ "$?" -ne 0 ]; then
+    echo "Error: php-fpm start failed"
+    exit 1
+fi
+
+if [ "$release" -eq '7' ]; then
+	# ProFtpd
+	wget $CHOST/$VERSION/$release/proftpd/proftpd.conf -O /etc/proftpd.conf
+	systemctl enable proftpd
+	systemctl start proftpd
+	if [ "$?" -ne 0 ]; then
+		echo "Error: proftpd start failed"
+		exit 1
+	fi
 fi
 
 # Vsftpd configuration
