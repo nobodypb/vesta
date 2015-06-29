@@ -720,6 +720,9 @@ if [ "$release" -eq '7' ]; then
 		wget $CHOST/$VERSION/$release/mariadb/my-large.cnf -O /etc/my.cnf
 	fi
 	
+	mkdir /var/lib/mysql
+	chown -R mysql /var/lib/mysql/
+	
 	systemctl enable mariadb
 	systemctl start mariadb
 else
@@ -1006,6 +1009,7 @@ $VESTA/bin/v-add-cron-job 'admin' '*/5' '*' '*' '*' '*' "$command"
 # Build inititall rrd images
 $VESTA/bin/v-update-sys-rrd
 
+# Enable file system quota
 # Enable file system quota
 if [ "$quota" = 'yes' ]; then
     $VESTA/bin/v-add-sys-quota
