@@ -290,7 +290,7 @@ fi
 # Install EPEL repo
 if [ ! -e '/etc/yum.repos.d/epel.repo' ]; then
 	if [ "$release" -eq '7' ]; then
-		yum -y install epel_release
+		yum -y install epel-release
 	else
 		if [ "$release" -eq '5' ]; then
 			epel="5/$arch/epel-release-5-4.noarch.rpm"
@@ -624,15 +624,18 @@ sed -i 's/#allowsftp/allowsftp/' /etc/rssh.conf
 sed -i 's/#allowrsync/allowrsync/' /etc/rssh.conf
 chmod 755 /usr/bin/rssh
 
-# Setup sftp only usergroup
-groupadd sftp_users
-sed -i 's|Subsystem sftp /usr/libexec/openssh/sftp-server|#Subsystem sftp /usr/libexec/openssh/sftp-server|g' /etc/ssh/sshd_config
-echo 'Subsystem sftp internal-sftp' >> /etc/ssh/sshd_config
-echo 'Match Group sftp_users' >> /etc/ssh/sshd_config
-echo '  X11Forwarding no' >> /etc/ssh/sshd_config
-echo '  AllowTcpForwarding no' >> /etc/ssh/sshd_config
-echo '  ChrootDirectory /home' >> /etc/ssh/sshd_config
-echo '  ForceCommand internal-sftp -d %u' >> /etc/ssh/sshd_config
+if [ "$release" -eq '7' ]; then
+	# Setup sftp only usergroup
+	groupadd sftp_users
+	sed -i 's|Subsystem sftp /usr/libexec/openssh/sftp-server|#Subsystem sftp /usr/libexec/openssh/sftp-server|g' /etc/ssh/sshd_config
+	echo 'Subsystem sftp internal-sftp' >> /etc/ssh/sshd_config
+	echo 'Match Group sftp_users' >> /etc/ssh/sshd_config
+	echo '  X11Forwarding no' >> /etc/ssh/sshd_config
+	echo '  AllowTcpForwarding no' >> /etc/ssh/sshd_config
+	echo '  ChrootDirectory /home' >> /etc/ssh/sshd_config
+	echo '  ForceCommand internal-sftp -d %u' >> /etc/ssh/sshd_config
+	systemctl restart sshd
+fi
 
 # Nginx configuration
 rm -f /etc/nginx/conf.d/*.conf
@@ -655,7 +658,9 @@ wget $CHOST/$VERSION/$release/httpd/httpd.conf -O /etc/httpd/conf/httpd.conf
 wget $CHOST/$VERSION/$release/httpd/status.conf -O /etc/httpd/conf.d/status.conf
 wget $CHOST/$VERSION/$release/httpd/ssl.conf -O /etc/httpd/conf.d/ssl.conf
 wget $CHOST/$VERSION/$release/logrotate/httpd -O /etc/logrotate.d/httpd
-echo "MEFaccept 127.0.0.1" >> /etc/httpd/conf.d/mod_extract_forwarded.conf
+if [ ! "$release" -eq '7' ]; then
+	echo "MEFaccept 127.0.0.1" >> /etc/httpd/conf.d/mod_extract_forwarded.conf
+fi
 rm -f /etc/httpd/conf.d/proxy_ajp.conf
 echo > /etc/httpd/conf.d/proxy_ajp.conf
 rm -f /etc/httpd/conf.d/vesta.conf
