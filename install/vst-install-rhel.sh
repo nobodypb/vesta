@@ -725,6 +725,10 @@ if [ "$release" -eq '7' ]; then
 	
 	systemctl enable mariadb
 	systemctl start mariadb
+	if [ "$?" -ne 0 ]; then
+			echo "Error: mariadb start failed"
+			exit 1
+		fi
 else
 	# MySQL configuration
 	if [ "$srv_type" = 'micro' ]; then
