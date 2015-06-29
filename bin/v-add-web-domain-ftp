@@ -56,9 +56,13 @@ get_domain_values 'web'
 
 # Defining ftp user shell
 if [ -z "$FTP_SHELL" ]; then
+    check_sftp_group=$(grep "^sftp_users:" /etc/group)
     shell='/sbin/nologin'
     if [ -e "/usr/bin/rssh" ]; then
         shell='/usr/bin/rssh'
+    fi
+    if [ ! -z "$check_sftp_group" ]; then
+        shell='/bin/bash'
     fi
 else
     shell=$FTP_SHELL
@@ -84,11 +88,17 @@ else
 fi
 
 # Adding ftp user
-/usr/sbin/useradd $ftp_user \
-    -s $shell \
-    -o -u $(id -u $user) \
-    -g $(id -u $user) \
-    -M -d "$ftp_path_a"  > /dev/null 2>&1
+params="$ftp_user \
+        -s $shell \
+        -o -u $(id -u $user) \
+        -g $(id -u $user) \
+        -M -d "$ftp_path_a""
+        
+if [ ! -z "$check_sftp_group" ]; then
+    params="$params -G sftp_users"
+fi
+
+/usr/sbin/useradd $params > /dev/null 2>&1
 
 # Set ftp user password
 echo "$ftp_user:$password" | /usr/sbin/chpasswd
