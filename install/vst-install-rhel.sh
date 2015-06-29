@@ -641,9 +641,9 @@ fi
 rm -f /etc/nginx/conf.d/*.conf
 wget $CHOST/$VERSION/$release/nginx/nginx.conf -O /etc/nginx/nginx.conf
 wget $CHOST/$VERSION/$release/nginx/status.conf -O /etc/nginx/conf.d/status.conf
-wget $CHOST/$VERSION/$release/nginx/phpmyadmin.inc -O /etc/nginx/conf.d/phpmyadmin.conf
-wget $CHOST/$VERSION/$release/nginx/phppgadmin.inc -O /etc/nginx/conf.d/phppgadmin.conf
-wget $CHOST/$VERSION/$release/nginx/webmail.inc -O /etc/nginx/conf.d/webmail.conf
+#wget $CHOST/$VERSION/$release/nginx/phpmyadmin.inc -O ?
+#wget $CHOST/$VERSION/$release/nginx/phppgadmin.inc -O ?
+#wget $CHOST/$VERSION/$release/nginx/webmail.inc -O ?
 wget $CHOST/$VERSION/$release/logrotate/nginx -O /etc/logrotate.d/nginx
 touch /etc/nginx/conf.d/vesta.conf
 chkconfig nginx on
