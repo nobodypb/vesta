@@ -689,16 +689,16 @@ if [ "$?" -ne 0 ]; then
     exit 1
 fi
 
-if [ "$release" -eq '7' ]; then
-	# ProFtpd
-	wget $CHOST/$VERSION/$release/proftpd/proftpd.conf -O /etc/proftpd.conf
-	systemctl enable proftpd
-	systemctl start proftpd
-	if [ "$?" -ne 0 ]; then
-		echo "Error: proftpd start failed"
-		exit 1
-	fi
-else
+#if [ "$release" -eq '7' ]; then
+#	# ProFtpd
+#	wget $CHOST/$VERSION/$release/proftpd/proftpd.conf -O /etc/proftpd.conf
+#	systemctl enable proftpd
+#	systemctl start proftpd
+#	if [ "$?" -ne 0 ]; then
+#		echo "Error: proftpd start failed"
+#		exit 1
+#	fi
+#else
 	# Vsftpd configuration
 	wget $CHOST/$VERSION/$release/vsftpd/vsftpd.conf -O /etc/vsftpd/vsftpd.conf
 	chkconfig vsftpd on
@@ -707,7 +707,7 @@ else
 		echo "Error: vsftpd start failed"
 		exit 1
 	fi
-fi
+#fi
 
 if [ "$release" -eq '7' ]; then
 	# MariaDB configuration
