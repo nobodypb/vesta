@@ -627,8 +627,7 @@ chmod 755 /usr/bin/rssh
 if [ "$release" -eq '7' ]; then
 	# Setup sftp only usergroup
 	groupadd sftp_users
-	sed -i 's|Subsystem sftp /usr/libexec/openssh/sftp-server|#Subsystem sftp /usr/libexec/openssh/sftp-server|g' /etc/ssh/sshd_config
-	echo 'Subsystem sftp internal-sftp' >> /etc/ssh/sshd_config
+	sed -i 's|Subsystem sftp /usr/libexec/openssh/sftp-server|Subsystem sftp internal-sftp|g' /etc/ssh/sshd_config
 	echo 'Match Group sftp_users' >> /etc/ssh/sshd_config
 	echo '  X11Forwarding no' >> /etc/ssh/sshd_config
 	echo '  AllowTcpForwarding no' >> /etc/ssh/sshd_config
