@@ -699,15 +699,15 @@ if [ "$release" -eq '7' ]; then
 		echo "Error: proftpd start failed"
 		exit 1
 	fi
-fi
-
-# Vsftpd configuration
-wget $CHOST/$VERSION/$release/vsftpd/vsftpd.conf -O /etc/vsftpd/vsftpd.conf
-chkconfig vsftpd on
-service vsftpd start
-if [ "$?" -ne 0 ]; then
-    echo "Error: vsftpd start failed"
-    exit 1
+else
+	# Vsftpd configuration
+	wget $CHOST/$VERSION/$release/vsftpd/vsftpd.conf -O /etc/vsftpd/vsftpd.conf
+	chkconfig vsftpd on
+	service vsftpd start
+	if [ "$?" -ne 0 ]; then
+		echo "Error: vsftpd start failed"
+		exit 1
+	fi
 fi
 
 if [ "$release" -eq '7' ]; then
