@@ -481,7 +481,7 @@ if [ "$release" -eq '7' ]; then
 	software=$(echo "$software" | sed -e 's/mysql-server/mariadb-server/g')
 	software=$(echo "$software" | sed -e 's/mysql/mariadb/g')
 	software=$(echo "$software" | sed -e 's/clamd/clamav clamav-update clamav-scanner/g')
-	software="$software proftpd"
+	software="$software proftpd iptables-services"
 fi
 
 # Install Vesta packages
@@ -967,6 +967,14 @@ if [ "$disable_iptables" = 'yes' ]; then
     chkconfig iptables off
     service iptables stop
 else
+	if [ "$release" -eq '7' ]; then
+		systemctl mask firewalld
+		systemctl stop firewalld
+		systemctl enable iptables
+		systemctl enable ip6tables
+		systemctl start iptables
+		systemctl start ip6tables
+	fi
     /usr/local/vesta/bin/v-update-firewall
 fi
 
