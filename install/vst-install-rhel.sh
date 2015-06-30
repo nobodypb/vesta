@@ -797,7 +797,7 @@ chmod 640 /etc/exim/exim.conf
 gpasswd -a exim mail
 
 if [ "$release" -eq '7' ]; then
-	sed -i "s|av_scanner\s\+=\s\+clamd:\s\+/var/run/clamav/clamd.sock|av_scanner = clamd:/var/run/clamd.scan/clamd.sock|g" /etc/clamd.conf
+	sed -i "s|av_scanner\s\+=\s\+clamd:\s\+/var/run/clamav/clamd.sock|av_scanner = clamd:/var/run/clamd.scan/clamd.sock|g" /etc/exim/exim.conf
 fi
 
 if [ -e /etc/init.d/sendmail ]; then
@@ -862,6 +862,7 @@ if [ "$srv_type" = 'medium' ] ||  [ "$srv_type" = 'large' ]; then
 		/bin/chown clamupdate /var/log/clamav/freshclam.log
 		touch /var/log/clamav/clamd.log
 		/bin/chown clamscan /var/log/clamav/clamd.log
+		chmod +r /var/run/clamd.scan
 		gpasswd -a clamscan exim
 		gpasswd -a clamscan mail
 		/usr/bin/freshclam
