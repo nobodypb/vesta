@@ -795,6 +795,11 @@ rm -rf /etc/exim/domains
 mkdir -p /etc/exim/domains
 chmod 640 /etc/exim/exim.conf
 gpasswd -a exim mail
+
+if [ "$release" -eq '7' ]; then
+	sed -i "s|av_scanner\s\+=\s\+clamd:\s\+/var/run/clamav/clamd.sock|av_scanner = clamd:/var/run/clamd.scan/clamd.sock|g" /etc/clamd.conf
+fi
+
 if [ -e /etc/init.d/sendmail ]; then
     chkconfig sendmail off
     service sendmail stop
