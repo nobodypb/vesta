@@ -862,7 +862,7 @@ if [ "$srv_type" = 'medium' ] ||  [ "$srv_type" = 'large' ]; then
 		/bin/chown clamupdate /var/log/clamav/freshclam.log
 		touch /var/log/clamav/clamd.log
 		/bin/chown clamscan /var/log/clamav/clamd.log
-		chmod +r /var/run/clamd.scan
+		chmod +rx /var/run/clamd.scan
 		gpasswd -a clamscan exim
 		gpasswd -a clamscan mail
 		/usr/bin/freshclam
