@@ -108,7 +108,7 @@ done
 
 # Enabling stateful support
 if [ "$conntrack" != 'no' ]; then
-    str="$iptables -A INPUT -p tcp -m state"
+    str="$iptables -A INPUT -m state"
     str="$str --state ESTABLISHED,RELATED -j ACCEPT"
     echo "$str" >> $tmp
 fi

@@ -26,7 +26,7 @@ help() {
    -h, --help                 Print this help and exit
    -f, --force                Force installation
    -i, --disable-iptables     Disable iptables support
-   -b, --disable-fail2ban     Disable fail2ban protection
+   -b, --disable-fail2ban     Disable fail2ban protection 
    -d, --disable-remi         Disable remi repository
    -n, --noupdate             Do not run yum update command
    -s, --hostname             Set server hostname
@@ -965,9 +965,9 @@ $VESTA/bin/v-add-database admin default default $(gen_pass) mysql
 $VESTA/bin/v-update-sys-ip
 
 # Firewall configuration
-wget $CHOST/$VERSION/$release/firewall.tar.gz -O firewall.tar.gz
-tar -xzf firewall.tar.gz
-rm -f firewall.tar.gz
+wget $CHOST/$VERSION/$release/firewall.tar.gz -O $VESTA/data/firewall.tar.gz
+tar -xzf $VESTA/data/firewall/firewall.tar.gz
+rm -f $VESTA/data/firewall/firewall.tar.gz
 if [ "$disable_iptables" = 'yes' ]; then
     sed -i "s/iptables//" $VESTA/conf/vesta.conf
     chkconfig iptables off
