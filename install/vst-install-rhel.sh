@@ -722,6 +722,8 @@ if [ "$release" -eq '7' ]; then
 	mkdir /var/lib/mysql
 	chown -R mysql /var/lib/mysql/
 	
+	sed -i "s/mysql/mariadb/g" $VESTA/conf/vesta.conf
+	
 	systemctl enable mariadb
 	systemctl start mariadb
 	if [ "$?" -ne 0 ]; then
