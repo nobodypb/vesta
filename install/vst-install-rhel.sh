@@ -968,8 +968,8 @@ $VESTA/bin/v-update-sys-ip
 
 # Firewall configuration
 wget $CHOST/$VERSION/$release/firewall.tar.gz -O $VESTA/data/firewall.tar.gz
-tar -xzf $VESTA/data/firewall/firewall.tar.gz
-rm -f $VESTA/data/firewall/firewall.tar.gz
+tar -xzf $VESTA/data/firewall.tar.gz
+rm -f $VESTA/data/firewall.tar.gz
 if [ "$disable_iptables" = 'yes' ]; then
     sed -i "s/iptables//" $VESTA/conf/vesta.conf
     chkconfig iptables off
