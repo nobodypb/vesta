@@ -912,7 +912,7 @@ sed -i "s/;date.timezone =/date.timezone = UTC/g" /etc/php.ini
 
 # phpMyAdmin configuration
 wget $CHOST/$VERSION/$release/pma/phpMyAdmin.conf -O /etc/httpd/conf.d/phpMyAdmin.conf
-wget $CHOST/$VERSION/$release/pma/config.inc.php -O /etc/phpMyAdmin/config.inc.php
+wget $CHOST/$VERSION/$release/pma/config.inc.conf -O /etc/phpMyAdmin/config.inc.php
 sed -i "s/%blowfish_secret%/$(gen_pass)/g" /etc/phpMyAdmin/config.inc.php
 
 # Roundcube configuration
